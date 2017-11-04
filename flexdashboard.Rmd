@@ -1,0 +1,81 @@
+---
+title: "Airbnb Flexdashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+```{r, message = FALSE}
+library(tidyverse)
+library(readr)
+library(janitor)
+library(stringr)
+library(forcats)
+library(viridis)
+
+library(plotly) # for plotly
+```
+
+```{r}
+airbnb_data = 
+  read_csv("./data/nyc_airbnb.zip") %>%
+  # preparing data for plotting
+  clean_names() %>%
+  mutate(rating = review_scores_location / 2) %>%
+  select(boro = neighbourhood_group, neighbourhood, rating, price, room_type,
+         latitude, longitude) %>%
+  filter(!is.na(rating),
+         boro == "Manhattan",
+         room_type == "Entire home/apt",
+         price %in% 100:400)  %>% 
+  sample_n(5000)
+```
+
+* construct dashboard
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### scatter plot
+
+```{r}
+airbnb_data %>%
+  mutate(text_label = str_c("Price: $", price, '\nRating: ', rating)) %>% 
+  plot_ly(x = ~longitude, y = ~latitude, type = "scatter", mode = "markers",
+          alpha = 0.5, 
+          color = ~price,
+          text = ~text_label)
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### box plot
+
+```{r}
+common_neighborhoods =
+  airbnb_data %>% 
+  count(neighbourhood, sort = TRUE) %>%
+  top_n(8) %>%
+  select(neighbourhood)
+## Selecting by n
+
+inner_join(airbnb_data, common_neighborhoods,
+             by = "neighbourhood") %>%
+  mutate(neighbourhood = fct_reorder(neighbourhood, price)) %>%
+  plot_ly(y = ~price, color = ~neighbourhood, type = "box", colors = "Set2")
+```
+
+### bar graph
+
+```{r}
+airbnb_data %>% 
+  count(neighbourhood) %>% 
+  mutate(neighbourhood = fct_reorder(neighbourhood, n)) %>% 
+  plot_ly(x = ~neighbourhood, y = ~n, color = ~neighbourhood, type = "bar")
+```
+
